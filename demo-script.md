@@ -1,92 +1,95 @@
-# qssh Live Demo Script
+# qssh Demo Walkthrough
 
-## 1. Generate a post-quantum key
+## 1. Start the server
 
 ```bash
-# Generate a fresh SPHINCS+ key
+cd ~/qssh-demo
+./start-server.sh
+```
+
+This starts `qsshd` on port 4242 with a SPHINCS+ host key.
+
+## 2. Generate post-quantum keys
+
+Generate a SPHINCS+ keypair (hash-based, quantum-safe):
+
+```bash
 qssh-keygen -t sphincs+ -f /tmp/demo_sphincs -y
 ```
 
-**Say:** "This generates a SPHINCS+ keypair - hash-based, quantum-safe. The only assumption is that hash functions are secure."
+Examine what was created:
 
 ```bash
-# Show what we just created
 ls -la /tmp/demo_sphincs*
 cat /tmp/demo_sphincs.pub
 ```
 
-**Say:** "Public key is 32 bytes, but signatures are about 17KB. That's the tradeoff for maximum security assumptions."
+The public key is 32 bytes, but signatures are about 17KB. That's the tradeoff for minimal security assumptions.
+
+Generate a Falcon key for comparison (lattice-based):
 
 ```bash
-# Generate a Falcon key for comparison
 qssh-keygen -t falcon -f /tmp/demo_falcon -y
 ls -la /tmp/demo_falcon*
 ```
 
-**Say:** "Falcon is lattice-based - smaller signatures around 1KB, but relies on different mathematical assumptions."
+Falcon has smaller signatures (~1KB) but relies on different mathematical assumptions.
 
-## 2. Show the server keys
+## 3. Examine the server keys
+
+The server uses SPHINCS+ for host authentication - this is what OpenSSH doesn't do (their host keys are still Ed25519 or RSA):
 
 ```bash
-# These are the pre-generated keys the server uses
 cat ~/qssh-demo/server/host_key.pub
 ls -la ~/qssh-demo/server/host_key*
 ```
 
-**Say:** "The server uses SPHINCS+ for host authentication. This is what OpenSSH doesn't do - their host keys are still Ed25519 or RSA."
+User keys are Falcon (~2KB vs 64 bytes for Ed25519):
 
 ```bash
-# Show user key
 ls -la ~/.qssh/id_qssh*
 ```
 
-**Say:** "User keys are Falcon - about 2KB vs 64 bytes for Ed25519."
-
-## 3. Connect and show algorithm negotiation
+## 4. Connect and observe algorithm negotiation
 
 ```bash
 qssh -p 4242 --verbose $USER@localhost
 ```
 
-**Point at the output:**
-- `Using post-quantum algorithm: SphincsPlus`
-- `Falcon signature verified successfully`
-- `Falcon public key: 897 bytes`
-- `SPHINCS+ public key: 32 bytes`
-- `Session keys derived with PQC-only security`
+The output shows:
+- `Using post-quantum algorithm: SphincsPlus` - SPHINCS+ for host auth (not in OpenSSH)
+- `Falcon signature verified successfully` - Falcon for user identity
+- `Falcon public key: 897 bytes` / `SPHINCS+ public key: 32 bytes` - larger key sizes
+- `Session keys derived with PQC-only security` - end-to-end post-quantum
 
-**Say:** "This shows the handshake negotiating PQ algorithms. OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using SPHINCS+ for the host and Falcon for the user."
+OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using SPHINCS+ for the host and Falcon for the user.
 
-## 4. If it fails at auth (expected)
+## 5. Authentication may fail
 
-**Say:** "The auth flow has a bug we're still debugging - this is research-grade. But you saw the important part: PQ algorithms negotiating successfully. Finding these bugs is exactly why testbeds like this exist."
+The auth flow has bugs being debugged - this is research-grade. The important part is the PQ algorithms negotiating successfully. Finding these integration issues is why testbeds like this exist.
 
 ---
 
-## Compare with OpenSSH (optional)
+## Compare with OpenSSH
 
 ```bash
 ssh -v localhost 2>&1 | grep -E "kex_input|host key"
 ```
 
-**Say:** "OpenSSH 9.0+ with `sntrup761x25519-sha512` does hybrid PQ key exchange - that's production-ready. What's missing is PQ host authentication and PQ user keys. That's what qssh explores."
+OpenSSH 9.0+ with `sntrup761x25519-sha512` does hybrid PQ key exchange - that's production-ready. What's missing is PQ host authentication and PQ user keys. That's what qssh explores.
 
 ---
 
-## Quick Reference
+## Key Takeaways
 
-| What they see | What you say |
-|---------------|--------------|
-| `qssh-keygen -t sphincs+` | "Generating a hash-based quantum-safe key" |
-| `17KB signature` | "That's the size tradeoff for minimal assumptions" |
-| `Using post-quantum algorithm: SphincsPlus` | "SPHINCS+ for host auth - not in OpenSSH" |
-| `Falcon signature verified` | "Falcon for user identity - lattice-based" |
-| `897 bytes` / `32 bytes` | "Key sizes are larger - that's the tradeoff" |
-| `Session keys derived with PQC-only` | "End-to-end post-quantum" |
-| Connection failure | "Research-grade - finding bugs is the point" |
+| Observation | Significance |
+|-------------|--------------|
+| `qssh-keygen -t sphincs+` | Hash-based quantum-safe key generation |
+| 17KB signatures | Size tradeoff for minimal assumptions |
+| SPHINCS+ host auth | Not available in OpenSSH |
+| Falcon user identity | Lattice-based, smaller than SPHINCS+ |
+| Larger key sizes | Migration consideration |
+| PQC-only session keys | End-to-end post-quantum |
+| Connection failures | Research-grade - finding bugs is the point |
 
----
-
-## Closing
-
-"The value isn't that qssh is production-ready. It's that building it surfaces where protocols strain under PQC - the 17KB signatures, the larger handshakes, the algorithm negotiation. These are the integration points you'll need to plan for."
+The value of qssh isn't production readiness. It's surfacing where protocols strain under PQC - the 17KB signatures, the larger handshakes, the algorithm negotiation. These are the integration points to plan for.
