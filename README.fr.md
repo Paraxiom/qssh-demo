@@ -9,7 +9,31 @@ cd ~/qssh-demo
 
 Ceci démarre `qsshd` sur le port 4242 avec une clé hôte SPHINCS+.
 
-## 2. Générer des clés post-quantiques
+## 2. Algorithmes d'échange de clés
+
+qssh supporte maintenant plusieurs algorithmes d'échange de clés post-quantiques :
+
+| Algorithme | Niveau NIST | Cas d'usage |
+|------------|-------------|-------------|
+| `falcon-signed` | - | Legacy, rétrocompatible |
+| `mlkem768` | Niveau 3 | Conforme FIPS 203, recommandé |
+| `mlkem1024` | Niveau 5 | Marge de sécurité maximale |
+| `hybrid` | Niveau 3 | X25519 + ML-KEM-768 défense en profondeur |
+
+Configurer via `~/.qssh/config` :
+
+```
+Host serveur-fips.exemple.com
+    KexAlgorithm mlkem768
+
+Host haute-securite.exemple.com
+    KexAlgorithm mlkem1024
+
+Host securite-maximale.exemple.com
+    KexAlgorithm hybrid
+```
+
+## 3. Générer des clés de signature post-quantiques
 
 Générer une paire de clés SPHINCS+ (basée sur les fonctions de hachage, résistante au quantique) :
 
@@ -50,21 +74,26 @@ Les clés utilisateur sont Falcon (~2 Ko vs 64 octets pour Ed25519) :
 ls -la ~/.qssh/id_qssh*
 ```
 
-## 4. Se connecter et observer la négociation des algorithmes
+## 5. Se connecter et observer la négociation des algorithmes
 
 ```bash
 qssh -p 4242 --verbose $USER@localhost
 ```
 
 La sortie affiche :
-- `Using post-quantum algorithm: SphincsPlus` - SPHINCS+ pour l'auth hôte (absent d'OpenSSH)
+- `Selected KEX algorithm: MlKem768` - ML-KEM pour l'échange de clés (FIPS 203)
+- `ML-KEM-768 key exchange completed` - Encapsulation de clés post-quantique
 - `Falcon signature verified successfully` - Falcon pour l'identité utilisateur
-- `Falcon public key: 897 bytes` / `SPHINCS+ public key: 32 bytes` - tailles de clés plus grandes
-- `Session keys derived with PQC-only security` - post-quantique de bout en bout
+- `Session keys derived with PQC-only security` - Post-quantique de bout en bout
 
-OpenSSH 9.0 fait un échange de clés hybride avec NTRU Prime, mais l'authentification hôte reste Ed25519. Ici nous utilisons SPHINCS+ pour l'hôte et Falcon pour l'utilisateur.
+**Échange de clés vs Signatures :**
+- **Échange de clés** : ML-KEM-768 (KEM basé sur les réseaux, FIPS 203)
+- **Auth hôte** : SPHINCS+ (signatures basées sur les fonctions de hachage)
+- **Auth utilisateur** : Falcon-512 (signatures basées sur les réseaux)
 
-## 5. L'authentification peut échouer
+OpenSSH 9.0 fait un échange de clés hybride avec NTRU Prime, mais l'authentification hôte reste Ed25519. Ici nous utilisons ML-KEM pour l'échange de clés, SPHINCS+ pour l'hôte et Falcon pour l'utilisateur.
+
+## 6. L'authentification peut échouer
 
 Le flux d'authentification a des bugs en cours de débogage - c'est du code de recherche. L'important est que les algorithmes PQ négocient avec succès. Trouver ces problèmes d'intégration est la raison d'être de ces bancs d'essai.
 
@@ -84,13 +113,14 @@ OpenSSH 9.0+ avec `sntrup761x25519-sha512` fait un échange de clés PQ hybride 
 
 | Observation | Signification |
 |-------------|---------------|
-| `qssh-keygen -t sphincs+` | Génération de clés résistantes au quantique basée sur les fonctions de hachage |
+| `KexAlgorithm mlkem768` | Échange de clés conforme FIPS 203 |
+| ML-KEM-768 / ML-KEM-1024 | KEM basé sur les réseaux, remplace Kyber vulnérable |
+| `qssh-keygen -t sphincs+` | Génération de clés résistantes au quantique |
 | Signatures de 17 Ko | Compromis de taille pour des hypothèses minimales |
 | Auth hôte SPHINCS+ | Non disponible dans OpenSSH |
 | Identité utilisateur Falcon | Basé sur les réseaux, plus petit que SPHINCS+ |
-| Tailles de clés plus grandes | Considération pour la migration |
-| Clés de session PQ uniquement | Post-quantique de bout en bout |
-| Échecs de connexion | Code de recherche - trouver les bugs est le but |
+| Hybride X25519+ML-KEM | Option défense en profondeur |
+| Clés de session PQ | Post-quantique de bout en bout |
 
 La valeur de qssh n'est pas d'être prêt pour la production. C'est de révéler où les protocoles peinent sous PQC - les signatures de 17 Ko, les handshakes plus grands, la négociation des algorithmes. Ce sont les points d'intégration à planifier.
 

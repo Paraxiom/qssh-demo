@@ -9,7 +9,31 @@ cd ~/qssh-demo
 
 This starts `qsshd` on port 4242 with a SPHINCS+ host key.
 
-## 2. Generate post-quantum keys
+## 2. Key Exchange Algorithms
+
+qssh now supports multiple post-quantum key exchange algorithms:
+
+| Algorithm | NIST Level | Use Case |
+|-----------|------------|----------|
+| `falcon-signed` | - | Legacy, backward compatible |
+| `mlkem768` | Level 3 | FIPS 203 compliant, recommended |
+| `mlkem1024` | Level 5 | Maximum security margin |
+| `hybrid` | Level 3 | X25519 + ML-KEM-768 defense-in-depth |
+
+Configure via `~/.qssh/config`:
+
+```
+Host fips-server.example.com
+    KexAlgorithm mlkem768
+
+Host high-security.example.com
+    KexAlgorithm mlkem1024
+
+Host maximum-safety.example.com
+    KexAlgorithm hybrid
+```
+
+## 3. Generate post-quantum signature keys
 
 Generate a SPHINCS+ keypair (hash-based, quantum-safe):
 
@@ -35,7 +59,7 @@ ls -la /tmp/demo_falcon*
 
 Falcon has smaller signatures (~1KB) but relies on different mathematical assumptions.
 
-## 3. Examine the server keys
+## 4. Examine the server keys
 
 The server uses SPHINCS+ for host authentication - this is what OpenSSH doesn't do (their host keys are still Ed25519 or RSA):
 
@@ -50,21 +74,26 @@ User keys are Falcon (~2KB vs 64 bytes for Ed25519):
 ls -la ~/.qssh/id_qssh*
 ```
 
-## 4. Connect and observe algorithm negotiation
+## 5. Connect and observe algorithm negotiation
 
 ```bash
 qssh -p 4242 --verbose $USER@localhost
 ```
 
 The output shows:
-- `Using post-quantum algorithm: SphincsPlus` - SPHINCS+ for host auth (not in OpenSSH)
+- `Selected KEX algorithm: MlKem768` - ML-KEM for key exchange (FIPS 203)
+- `ML-KEM-768 key exchange completed` - Post-quantum key encapsulation
 - `Falcon signature verified successfully` - Falcon for user identity
-- `Falcon public key: 897 bytes` / `SPHINCS+ public key: 32 bytes` - larger key sizes
-- `Session keys derived with PQC-only security` - end-to-end post-quantum
+- `Session keys derived with PQC-only security` - End-to-end post-quantum
 
-OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using SPHINCS+ for the host and Falcon for the user.
+**Key Exchange vs Signatures:**
+- **Key Exchange**: ML-KEM-768 (lattice-based KEM, FIPS 203)
+- **Host Authentication**: SPHINCS+ (hash-based signatures)
+- **User Authentication**: Falcon-512 (lattice-based signatures)
 
-## 5. Authentication may fail
+OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using ML-KEM for key exchange, SPHINCS+ for the host, and Falcon for the user.
+
+## 6. Authentication may fail
 
 The auth flow has bugs being debugged - this is research-grade. The important part is the PQ algorithms negotiating successfully. Finding these integration issues is why testbeds like this exist.
 
@@ -84,13 +113,14 @@ OpenSSH 9.0+ with `sntrup761x25519-sha512` does hybrid PQ key exchange - that's 
 
 | Observation | Significance |
 |-------------|--------------|
+| `KexAlgorithm mlkem768` | FIPS 203 compliant key exchange |
+| ML-KEM-768 / ML-KEM-1024 | Lattice-based KEM, replaces vulnerable Kyber |
 | `qssh-keygen -t sphincs+` | Hash-based quantum-safe key generation |
 | 17KB signatures | Size tradeoff for minimal assumptions |
 | SPHINCS+ host auth | Not available in OpenSSH |
 | Falcon user identity | Lattice-based, smaller than SPHINCS+ |
-| Larger key sizes | Migration consideration |
+| Hybrid X25519+ML-KEM | Defense-in-depth option |
 | PQC-only session keys | End-to-end post-quantum |
-| Connection failures | Research-grade - finding bugs is the point |
 
 The value of qssh isn't production readiness. It's surfacing where protocols strain under PQC - the 17KB signatures, the larger handshakes, the algorithm negotiation. These are the integration points to plan for.
 
