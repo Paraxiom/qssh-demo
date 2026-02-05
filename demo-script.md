@@ -104,8 +104,16 @@ ls -la ~/.qssh/id_qssh*
 
 ## 5. Connect and observe algorithm negotiation
 
+Show the handshake (verbose output only, no interactive shell):
+
 ```bash
-qssh -p 4242 --verbose $USER@localhost
+qssh -p 4242 --verbose $USER@localhost 2>&1 | head -30
+```
+
+Then connect with a clean interactive session:
+
+```bash
+qssh -p 4242 $USER@localhost
 ```
 
 The output shows:

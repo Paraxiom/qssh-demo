@@ -104,8 +104,16 @@ ls -la ~/.qssh/id_qssh*
 
 ## 5. Se connecter et observer la négociation des algorithmes
 
+Afficher le handshake (sortie verbose uniquement, sans shell interactif) :
+
 ```bash
-qssh -p 4242 --verbose $USER@localhost
+qssh -p 4242 --verbose $USER@localhost 2>&1 | head -30
+```
+
+Puis se connecter avec une session interactive propre :
+
+```bash
+qssh -p 4242 $USER@localhost
 ```
 
 La sortie affiche :
