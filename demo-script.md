@@ -13,6 +13,8 @@ Install qssh from crates.io:
 
 ```bash
 cargo install qssh
+# If an older version is already installed:
+cargo install qssh --force
 ```
 
 Verify the installation:
