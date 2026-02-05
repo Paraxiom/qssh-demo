@@ -17,14 +17,16 @@ cargo install qssh
 cargo install qssh --force
 ```
 
-Verify the installation:
+Verify the installation (must be v0.2.1 or later):
 
 ```bash
-qssh --version
-qssh-keygen --help
+qssh --version    # should print: qssh 0.2.1
+qsshd --version   # should print: qsshd 0.2.1
 ```
 
 ## 1. Start the server
+
+### Option A: Local demo
 
 ```bash
 cd ~/qssh-demo
@@ -36,6 +38,10 @@ qsshd \
 ```
 
 This starts `qsshd` on port 4242 with a SPHINCS+ host key.
+
+### Option B: Remote validator (qh-alice)
+
+`qsshd` is already running on the remote validator node. No local server needed — connect directly from your laptop (see step 5).
 
 ## 2. Key Exchange Algorithms
 
@@ -104,6 +110,8 @@ ls -la ~/.qssh/id_qssh*
 
 ## 5. Connect and observe algorithm negotiation
 
+### Option A: Local
+
 Show the handshake (verbose output only, no interactive shell):
 
 ```bash
@@ -115,6 +123,20 @@ Then connect with a clean interactive session:
 ```bash
 qssh -p 4242 $USER@localhost
 ```
+
+### Option B: Remote validator (qh-alice)
+
+```bash
+qssh -p 4242 --verbose ubuntu@51.79.26.123 2>&1 | head -30
+```
+
+Then connect:
+
+```bash
+qssh -p 4242 ubuntu@51.79.26.123
+```
+
+This is a real PQ-encrypted connection to a blockchain validator node over the public internet.
 
 The output shows:
 - `Using post-quantum algorithm: SphincsPlus` - SPHINCS+ for host auth (not in OpenSSH)
