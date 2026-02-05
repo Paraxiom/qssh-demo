@@ -103,17 +103,17 @@ qssh -p 4242 --verbose $USER@localhost
 ```
 
 The output shows:
-- `Selected KEX algorithm: MlKem768` - ML-KEM for key exchange (FIPS 203)
-- `ML-KEM-768 key exchange completed` - Post-quantum key encapsulation
-- `Falcon signature verified successfully` - Falcon for user identity
-- `Session keys derived with PQC-only security` - End-to-end post-quantum
+- `Using post-quantum algorithm: SphincsPlus` - SPHINCS+ for host auth (not in OpenSSH)
+- `Transport: Quantum-native (768-byte indistinguishable frames)` - Fixed-size frames resist traffic analysis
+- `KEX preference: FalconSignedShares` - Falcon-512 key exchange
+- `Loaded identity key from ~/.qssh/id_qssh (1281 bytes)` - Falcon-512 user key (~1KB vs 64 bytes for Ed25519)
 
-**Key Exchange vs Signatures:**
-- **Key Exchange**: ML-KEM-768 (lattice-based KEM, FIPS 203)
+**What's running:**
 - **Host Auth**: SPHINCS+ (hash-based signatures)
 - **User Auth**: Falcon-512 (lattice-based signatures)
+- **KEX**: Falcon-signed key shares
 
-OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we use ML-KEM for key exchange, SPHINCS+ for the host, and Falcon for the user.
+OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using SPHINCS+ for the host and Falcon for the user.
 
 ## 6. Authentication may fail
 
@@ -135,13 +135,12 @@ OpenSSH 9.0+ with `sntrup761x25519-sha512` does hybrid PQ key exchange - that's 
 
 | Observation | Significance |
 |-------------|--------------|
-| `KexAlgorithm mlkem768` | FIPS 203 compliant key exchange |
-| ML-KEM-768 / ML-KEM-1024 | Lattice-based KEM, replaces vulnerable Kyber |
-| `qssh-keygen -t sphincs+` | Quantum-safe key generation |
+| `PqAlgorithm falcon512` | One-line PQ config, familiar SSH syntax |
+| `qssh-keygen -t sphincs+` | Hash-based quantum-safe key generation |
+| 768-byte indistinguishable frames | Traffic analysis resistance |
 | 17KB signatures | Size tradeoff for minimal assumptions |
 | SPHINCS+ host auth | Not available in OpenSSH |
-| Falcon user identity | Lattice-based, smaller than SPHINCS+ |
-| Hybrid X25519+ML-KEM | Defense in depth option |
+| Falcon user identity (1281 bytes) | Lattice-based, smaller than SPHINCS+ |
 | PQ session keys | End-to-end post-quantum |
 
 The value of qssh isn't production readiness. It's surfacing where protocols strain under PQC - the 17KB signatures, the larger handshakes, the algorithm negotiation. These are the integration points to plan for.
