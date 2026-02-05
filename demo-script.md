@@ -26,7 +26,11 @@ qssh-keygen --help
 
 ```bash
 cd ~/qssh-demo
-./start-server.sh
+qsshd \
+    --listen 127.0.0.1:4242 \
+    --host-key ./server/host_key \
+    --authorized-keys ./server/authorized_keys \
+    --verbose
 ```
 
 This starts `qsshd` on port 4242 with a SPHINCS+ host key.
@@ -115,9 +119,19 @@ The output shows:
 
 OpenSSH 9.0 does hybrid key exchange with NTRU Prime, but host authentication is still Ed25519. Here we're using SPHINCS+ for the host and Falcon for the user.
 
-## 6. Authentication may fail
+## 6. Interactive session
 
-The auth flow has bugs being debugged - this is research-grade. The important part is the PQ algorithms negotiating successfully. Finding these integration issues is why testbeds like this exist.
+Once connected, you get a full shell:
+
+```
+Handshake completed successfully
+Connected successfully!
+Shell session started (channel 0)
+Welcome to QSSH!
+➜  qssh-demo git:(main)
+```
+
+The entire session is protected by post-quantum session keys.
 
 ---
 
