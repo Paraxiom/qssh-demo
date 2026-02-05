@@ -1,5 +1,27 @@
 # Démonstration qssh - Guide pas à pas
 
+## 0. Prérequis — Installer Rust et qssh
+
+Installer Rust (si pas déjà installé) :
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+```
+
+Installer qssh depuis crates.io :
+
+```bash
+cargo install qssh
+```
+
+Vérifier l'installation :
+
+```bash
+qssh --version
+qssh-keygen --help
+```
+
 ## 1. Démarrer le serveur
 
 ```bash
@@ -59,7 +81,7 @@ ls -la /tmp/demo_falcon*
 
 Falcon a des signatures plus petites (~1 Ko) mais repose sur des hypothèses mathématiques différentes.
 
-## 3. Examiner les clés du serveur
+## 4. Examiner les clés du serveur
 
 Le serveur utilise SPHINCS+ pour l'authentification hôte - c'est ce qu'OpenSSH ne fait pas (leurs clés hôtes sont toujours Ed25519 ou RSA) :
 
